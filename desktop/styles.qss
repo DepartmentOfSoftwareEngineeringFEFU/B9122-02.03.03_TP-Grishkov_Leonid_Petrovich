@@ -1,0 +1,75 @@
+QMainWindow {
+    background-color: #FAFAFA;
+}
+
+QListWidget {
+    background-color: #F3F3F3;
+    border: none;
+    border-right: 1px solid #E0E0E0;
+    padding-top: 10px;
+}
+
+QListWidget::item {
+    color: #333333;
+    border-radius: 6px;
+    margin: 4px 8px;
+    padding-left: 10px;
+}
+
+QListWidget::item:hover {
+    background-color: #EAEAEA;
+}
+
+QListWidget::item:selected {
+    background-color: #E0EEF9;
+    color: #0067B8;
+    font-weight: 600;
+}
+
+QStackedWidget {
+    background-color: #FFFFFF;
+}
+
+/* Стили для заголовков внутри модулей (будут наследоваться) */
+.ModuleTitle {
+    font-size: 22px; 
+    font-weight: bold; 
+    color: #1A1A1A;
+}
+
+
+
+
+/* Добавьте это в ваш styles.qss */
+
+#CustomTitleBar {
+    background-color: #FFFFFF;
+    border-bottom: 1px solid #E0E0E0;
+    /* Жестко убираем внутренние поля самого виджета */
+    padding: 0px; 
+    margin: 0px;
+}
+
+#TitleBarText {
+    color: #1A1A1A;
+    font-size: 14px;
+    font-weight: 600;
+    margin-left: 8px;
+}
+
+/* Убираем все отступы у кнопок управления в кастомном TitleBar */
+#CustomTitleBar QPushButton {
+    background-color: transparent;
+    border: none;
+    border-radius: 0px;
+    margin: 0px;
+    padding: 0px;
+}
+
+#CustomTitleBar QPushButton:hover {
+    background-color: #EAEAEA;
+}
+
+#CustomTitleBar QPushButton#TitleBtnClose:hover {
+    background-color: #E81123;
+}
