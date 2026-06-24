@@ -2,6 +2,8 @@ import os
 import sys
 import qtawesome as qta
 
+from auth import LoginDialog
+
 os.environ["QT_AUTO_SCREEN_SCALE_FACTOR"] = "1"
 from PyQt5.QtCore import Qt, QSize, QPoint 
 from PyQt5.QtGui import QFont
@@ -13,6 +15,8 @@ from PyQt5.QtGui import QKeySequence
 from components.title_bar import CustomTitleBar
 from modules.dashboard import DashboardModule
 from modules.inventory import InventoryModule
+from modules.directories import DirectoriesModule
+
 
 # Константы Windows API для отслеживания границ окна
 if sys.platform == "win32":
@@ -34,6 +38,13 @@ class ErpMainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         
+        # Окно входа
+        self.api_client = None
+        login = LoginDialog()
+        if login.exec_() != LoginDialog.Accepted:
+            sys.exit(0)
+        self.api_client = login.get_client()
+
         # Заменяем FramelessWindowHint на более гибкий флаг (убирает рамку, но оставляет системное поведение)
         self.setWindowFlags(Qt.Window | Qt.CustomizeWindowHint)
 
@@ -99,7 +110,15 @@ class ErpMainWindow(QMainWindow):
     def init_modules(self):
         navigation_items = [
             ("Главная", "fa5s.chart-pie", DashboardModule()),
-            ("Складской учет", "fa5s.boxes", InventoryModule()),
+            ("Заказы", "fa5s.file-invoice", QWidget()),
+            ("Клиенты", "fa5s.users", QWidget()),
+            ("Сотрудники", "fa5s.id-card", QWidget()),
+            ("Табель", "fa5s.calendar-check", QWidget()),
+            ("Склад", "fa5s.boxes", QWidget()),
+            ("Финансы", "fa5s.ruble-sign", QWidget()),
+            ("Оборудование", "fa5s.cogs", QWidget()),
+            ("Отчёты", "fa5s.chart-bar", QWidget()),
+            ("Справочники", "fa5s.book", DirectoriesModule(self.api_client)),
         ]
         for text, icon_name, widget_instance in navigation_items:
             item = QListWidgetItem()

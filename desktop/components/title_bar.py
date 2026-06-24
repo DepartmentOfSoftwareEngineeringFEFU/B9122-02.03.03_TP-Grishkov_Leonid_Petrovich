@@ -65,16 +65,6 @@ class CustomTitleBar(QWidget):
             self.parent_window.showMaximized()
             self.btn_maximize.setIcon(qta.icon("fa5s.window-restore", color="#333333"))
 
-    # def mousePressEvent(self, event):
-    #     # Передаем перетаскивание на уровень операционной системы Windows
-    #     if event.button() == Qt.LeftButton and sys.platform == "win32":
-    #         user32.ReleaseCapture()
-    #         # Отправляем сообщение WM_NCLBUTTONDOWN с параметром HTCAPTION (2)
-    #         user32.SendMessageW(self.parent_window.winId(), 0x00A1, 2, 0)
-    #         event.accept()
-    #     else:
-    #         super().mousePressEvent(event)
-
     def mousePressEvent(self, event):
         # Передаем перетаскивание на уровень операционной системы Windows
         if event.button() == Qt.LeftButton and sys.platform == "win32":
