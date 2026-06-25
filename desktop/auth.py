@@ -12,7 +12,7 @@ class LoginDialog(QDialog):
         self.api_client = APIClient()
         self.setWindowTitle("Вход в систему")
         self.setFixedSize(380, 260)
-        self.setWindowFlags(Qt.Window | Qt.CustomizeWindowHint | Qt.WindowTitleHint)
+        self.setWindowFlags(Qt.Window | Qt.WindowTitleHint | Qt.WindowCloseButtonHint)
         self.init_ui()
 
     def init_ui(self):
@@ -52,7 +52,26 @@ class LoginDialog(QDialog):
         self.login_btn.clicked.connect(self.do_login)
         layout.addWidget(self.login_btn)
 
+        # btn_close = QPushButton("закрыть")
+        # btn_close.clicked.connect(self.reject)
+        # layout.addWidget(btn_close)
+
         self.setLayout(layout)
+
+    # def do_login(self):
+    #     username = self.username_input.text().strip()
+    #     password = self.password_input.text().strip()
+
+    #     if not username or not password:
+    #         QMessageBox.warning(self, "Ошибка", "Введите логин и пароль")
+    #         return
+
+    #     success, error = self.api_client.login(username, password)
+    #     if success:
+    #         self.accept()
+    #     else:
+    #         QMessageBox.critical(self, "Ошибка входа", error or "Неверный логин или пароль")
+
 
     def do_login(self):
         username = self.username_input.text().strip()
@@ -63,10 +82,25 @@ class LoginDialog(QDialog):
             return
 
         success, error = self.api_client.login(username, password)
-        if success:
-            self.accept()
-        else:
+        if not success:
             QMessageBox.critical(self, "Ошибка входа", error or "Неверный логин или пароль")
+            return
 
+        # Проверяем роль
+        profile = self.api_client.get_profile()
+        if not profile:
+            QMessageBox.critical(self, "Ошибка", "Не удалось загрузить профиль")
+            return
+
+        if not profile.get('is_employee', False):
+            QMessageBox.warning(self, "Доступ запрещён", "Десктопное приложение доступно только сотрудникам.\nИспользуйте веб-портал.")
+            return
+
+        self.user_profile = profile
+        self.accept()
+
+
+    # def get_client(self):
+    #     return self.api_client
     def get_client(self):
-        return self.api_client
+        return self.api_client, self.user_profile

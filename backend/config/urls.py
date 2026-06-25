@@ -36,6 +36,7 @@ urlpatterns = [
     path('api/', include('files.api.urls')),
     path('api/', include('reports.api.urls')),
     path('api/', include('users.api.urls')),
+    
 ]
 
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

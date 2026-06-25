@@ -8,7 +8,7 @@ os.environ["QT_AUTO_SCREEN_SCALE_FACTOR"] = "1"
 from PyQt5.QtCore import Qt, QSize, QPoint 
 from PyQt5.QtGui import QFont
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, 
-                             QVBoxLayout, QHBoxLayout, QListWidget, 
+                             QVBoxLayout, QHBoxLayout, QListWidget, QPushButton, 
                              QListWidgetItem, QStackedWidget, QShortcut)
 from PyQt5.QtGui import QKeySequence
 
@@ -51,7 +51,8 @@ class ErpMainWindow(QMainWindow):
         login = LoginDialog()
         if login.exec_() != LoginDialog.Accepted:
             sys.exit(0)
-        self.api_client = login.get_client()
+        self.api_client, self.user_profile = login.get_client()
+        self.is_director = self.user_profile.get('is_director', False)
 
         # Заменяем FramelessWindowHint на более гибкий флаг (убирает рамку, но оставляет системное поведение)
         self.setWindowFlags(Qt.Window | Qt.CustomizeWindowHint)
@@ -89,20 +90,42 @@ class ErpMainWindow(QMainWindow):
         self.title_bar = CustomTitleBar(self)
         global_layout.addWidget(self.title_bar)
         
+        # self.sidebar = QListWidget()
+        # self.sidebar.setFixedWidth(260)
+        # self.sidebar.setIconSize(QSize(20, 20))
+        # self.sidebar.setFocusPolicy(Qt.NoFocus)
+
+        self.sidebar_widget = QWidget()
+        self.sidebar_widget.setFixedWidth(260)
+        sidebar_layout = QVBoxLayout(self.sidebar_widget)
+        sidebar_layout.setContentsMargins(0, 0, 0, 0)
+        sidebar_layout.setSpacing(0)
+
         self.sidebar = QListWidget()
-        self.sidebar.setFixedWidth(260)
         self.sidebar.setIconSize(QSize(20, 20))
         self.sidebar.setFocusPolicy(Qt.NoFocus)
+        sidebar_layout.addWidget(self.sidebar, stretch=1)
+
+        # Кнопка Выйти
+        logout_btn = QPushButton("  Выйти")
+        logout_btn.setIcon(qta.icon("fa5s.sign-out-alt", color="#555555"))
+        logout_btn.setIconSize(QSize(20, 20))
+        logout_btn.setFixedHeight(45)
+        logout_btn.setFlat(True)
+        logout_btn.setCursor(Qt.PointingHandCursor)
+        logout_btn.clicked.connect(self.on_logout)
+        sidebar_layout.addWidget(logout_btn)
         
         self.modules_container = QStackedWidget()
         
         self.init_modules()
         self.sidebar.currentRowChanged.connect(self.modules_container.setCurrentIndex)
+        # self.sidebar.currentRowChanged.connect(self.on_module_changed)
         
         workspace_layout = QHBoxLayout()
         workspace_layout.setContentsMargins(0, 0, 0, 0)
         workspace_layout.setSpacing(0)
-        workspace_layout.addWidget(self.sidebar)
+        workspace_layout.addWidget(self.sidebar_widget)
         workspace_layout.addWidget(self.modules_container, stretch=1)
         
         global_layout.addLayout(workspace_layout)
@@ -115,19 +138,30 @@ class ErpMainWindow(QMainWindow):
         self.shortcut_reload = QShortcut(QKeySequence("F5"), self)
         self.shortcut_reload.activated.connect(lambda: self.load_stylesheet("styles.qss"))
 
+
     def init_modules(self):
         navigation_items = [
-            ("Главная", "fa5s.chart-pie", DashboardModule()),
-            ("Клиенты", "fa5s.users", ClientsModule(self.api_client)),
-            ("Заказы", "fa5s.file-invoice", OrdersModule(self.api_client)),
-            ("Сотрудники", "fa5s.id-card", EmployeesModule(self.api_client)),
-            ("Табель работ", "fa5s.calendar-check", WorkLogModule(self.api_client)),
-            ("Операции", "fa5s.cogs", OperationsModule(self.api_client)),
-            ("Склад", "fa5s.boxes", WarehouseModule(self.api_client)),
-            ("Финансы", "fa5s.ruble-sign", FinanceModule(self.api_client)),
-            ("Аналитика", "fa5s.chart-bar", ReportsModule(self.api_client)),
-            ("Справочники", "fa5s.book", DirectoriesModule(self.api_client)),
+            # ("Главная", "fa5s.chart-pie", DashboardModule()),
         ]
+        if self.is_director:
+            navigation_items += [
+                ("Заказы", "fa5s.file-invoice", OrdersModule(self.api_client)),
+                ("Клиенты", "fa5s.users", ClientsModule(self.api_client)),
+                ("Сотрудники", "fa5s.id-card", EmployeesModule(self.api_client)),
+                ("Табель работ", "fa5s.calendar-check", WorkLogModule(self.api_client)),
+                ("Склад", "fa5s.boxes", WarehouseModule(self.api_client)),
+                ("Финансы", "fa5s.ruble-sign", FinanceModule(self.api_client)),
+                ("Оборудование", "fa5s.cogs", OperationsModule(self.api_client)),
+                ("Отчёты", "fa5s.chart-bar", ReportsModule(self.api_client)),
+                ("Справочники", "fa5s.book", DirectoriesModule(self.api_client)),
+            ]
+        else:
+            navigation_items += [
+                ("Сотрудники", "fa5s.id-card", EmployeesModule(self.api_client, is_director=False)),
+                ("Табель работ", "fa5s.calendar-check", WorkLogModule(self.api_client, is_director=False)),
+            ]
+        # navigation_items.append(("Выйти", "fa5s.sign-out-alt", None))
+
         for text, icon_name, widget_instance in navigation_items:
             item = QListWidgetItem()
             item.setText(f"  {text}")
@@ -135,6 +169,29 @@ class ErpMainWindow(QMainWindow):
             item.setSizeHint(QSize(0, 45))
             self.sidebar.addItem(item)
             self.modules_container.addWidget(widget_instance)
+
+        # # Растяжка перед кнопкой "Выйти"
+        # stretch_item = QListWidgetItem()
+        # stretch_item.setFlags(Qt.NoItemFlags)
+        # stretch_item.setSizeHint(QSize(0, 9999))
+        # self.sidebar.addItem(stretch_item)
+        # self.modules_container.addWidget(QWidget())
+
+        # # Кнопка "Выйти"
+        # logout_item = QListWidgetItem()
+        # logout_item.setText("  Выйти")
+        # logout_item.setIcon(qta.icon("fa5s.sign-out-alt", color="#555555"))
+        # logout_item.setSizeHint(QSize(0, 45))
+        # self.sidebar.addItem(logout_item)
+        # self.modules_container.addWidget(QWidget())
+
+
+    def on_logout(self):
+        self.close()
+        import os, sys
+        os.execl(sys.executable, sys.executable, *sys.argv)
+        
+        
 
     def load_stylesheet(self, filename):
         try:
@@ -152,7 +209,7 @@ class ErpMainWindow(QMainWindow):
                 window_handle = int(self.winId())
                 
                 # Посылаем операционной системе Windows сигнал обновить неклиентскую область.
-                # Флаг 0x0020 (SWP_FRAMECHANGED) заставит DWM мгновенно вернуть 
+                # Флаг 0x0020 (SWP_FRAMECHANGED) заставит DWM вернуть 
                 # скругленные углы и тени, исправляя баг перетаскивания.
                 ctypes.windll.user32.SetWindowPos(
                     window_handle, 0, 0, 0, 0, 0, 
@@ -171,12 +228,9 @@ class ErpMainWindow(QMainWindow):
             
         msg = wintypes.MSG.from_address(int(message))
 
-        # Найти и заменить блок WM_NCCALCSIZE в nativeEvent (main.py):
         if msg.message == 0x0083: # WM_NCCALCSIZE
             if msg.wParam:
-                # Если окно развернуто на весь экран, мы не делаем дополнительных отступов.
-                # Если окно в обычном режиме, мы компенсируем системные пиксели рамки Windows,
-                # чтобы интерфейс прижимался ровно к краям экрана без зазоров.
+                # Если окно развернуто на весь экран, мы не делаем отступов
                 if self.isMaximized():
                     return True, 0
                 
@@ -184,7 +238,6 @@ class ErpMainWindow(QMainWindow):
                 rect = ctypes.cast(msg.lParam, ctypes.POINTER(wintypes.RECT)).contents
                 
                 # Запрашиваем у ОС стандартную толщину невидимых рамок
-                # Это уберет зазор сверху и по бокам при перетаскивании к краям
                 border_x = ctypes.windll.user32.GetSystemMetrics(32) # SM_CXSIZEFRAME
                 border_y = ctypes.windll.user32.GetSystemMetrics(33) # SM_CYSIZEFRAME
                 padd = ctypes.windll.user32.GetSystemMetrics(92)    # SM_CXPADDEDBORDER

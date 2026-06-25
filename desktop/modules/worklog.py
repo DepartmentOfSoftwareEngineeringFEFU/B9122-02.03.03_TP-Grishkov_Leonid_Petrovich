@@ -27,9 +27,10 @@ class WorkLogModule(QWidget):
         'entries_count': 'Кол-во работ',
     }
 
-    def __init__(self, api_client):
+    def __init__(self, api_client, is_director=True):
         super().__init__()
         self.api = api_client
+        self.is_director = is_director
         self.current_data = []
         self.employees = []
         self.categories = []
@@ -95,20 +96,21 @@ class WorkLogModule(QWidget):
         layout.addWidget(title)
 
         btn_layout = QHBoxLayout()
-        btn_add = QPushButton("+ Добавить смену")
-        btn_add.clicked.connect(self.add_shift)
-        btn_edit = QPushButton("Редактировать")
-        btn_edit.clicked.connect(self.edit_shift)
-        btn_delete = QPushButton("Удалить")
-        btn_delete.clicked.connect(self.delete_shift)
-        btn_categories = QPushButton("Категории работ")
-        btn_categories.clicked.connect(self.show_categories_report)
+        if self.is_director:
+            btn_add = QPushButton("+ Добавить смену")
+            btn_add.clicked.connect(self.add_shift)
+            btn_edit = QPushButton("Редактировать")
+            btn_edit.clicked.connect(self.edit_shift)
+            btn_delete = QPushButton("Удалить")
+            btn_delete.clicked.connect(self.delete_shift)
+            btn_layout.addWidget(btn_add)
+            btn_layout.addWidget(btn_edit)
+            btn_layout.addWidget(btn_delete)
+            btn_layout.addStretch()
+            btn_categories = QPushButton("Категории работ")
+            btn_categories.clicked.connect(self.show_categories_report)
+            btn_layout.addWidget(btn_categories)
 
-        btn_layout.addWidget(btn_add)
-        btn_layout.addWidget(btn_edit)
-        btn_layout.addWidget(btn_delete)
-        btn_layout.addStretch()
-        btn_layout.addWidget(btn_categories)
         layout.addLayout(btn_layout)
 
         self.table = QTableWidget()
@@ -140,6 +142,8 @@ class WorkLogModule(QWidget):
             allowed = set(self.COLUMN_NAMES.keys()) | {'id'}
             self.current_data = []
             for item in raw:
+                if not self.is_director and item.get('employee') != self.api.user_id:
+                    continue
                 if 'entries' in item:
                     item['entries_count'] = len(item['entries'])
                 else:

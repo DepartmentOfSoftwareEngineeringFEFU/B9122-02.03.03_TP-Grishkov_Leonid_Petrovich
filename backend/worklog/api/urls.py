@@ -2,7 +2,7 @@ from rest_framework.routers import DefaultRouter
 from .views import WorkLogViewSet, WorkEntryViewSet
 
 router = DefaultRouter()
-router.register(r'work-logs', WorkLogViewSet)
-router.register(r'work-entries', WorkEntryViewSet)
+router.register(r'work-logs', WorkLogViewSet, basename='worklog')
+router.register(r'work-entries', WorkEntryViewSet, basename='workentry')
 
 urlpatterns = router.urls

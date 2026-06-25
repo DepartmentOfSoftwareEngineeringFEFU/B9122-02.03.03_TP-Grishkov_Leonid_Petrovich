@@ -48,4 +48,44 @@ class UserViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
     permission_classes = [permissions.IsAuthenticated]
+
+
+
+class UserProfileSerializer(serializers.ModelSerializer):
+    is_employee = serializers.SerializerMethodField()
+    is_director = serializers.SerializerMethodField()
+    is_client = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'is_director', 'is_client']
+
+    def get_is_employee(self, obj):
+        return hasattr(obj, 'profile') and obj.profile.is_employee
     
+    def get_is_director(self, obj):
+        return hasattr(obj, 'profile') and obj.profile.is_director
+
+    def get_is_client(self, obj):
+        return hasattr(obj, 'customer')
+
+
+class MeView(views.APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        is_employee = hasattr(user, 'employee')
+        is_director = is_employee and user.employee.position.name == 'Директор'
+        is_client = hasattr(user, 'customer')
+
+        return Response({
+            'id': user.id,
+            'username': user.username,
+            'email': user.email,
+            'first_name': user.first_name,
+            'last_name': user.last_name,
+            'is_employee': is_employee,
+            'is_director': is_director,
+            'is_client': is_client,
+        })

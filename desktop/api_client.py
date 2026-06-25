@@ -8,6 +8,21 @@ class APIClient:
         self.token = None
         self.refresh_token = None
 
+    # def get_profile(self):
+    #     """Получает профиль текущего пользователя."""
+    #     resp = self._request(requests.get, 'me/')
+    #     if resp.status_code == 200:
+    #         return resp.json()
+    #     return None
+    
+    def get_profile(self):
+        resp = self._request(requests.get, 'me/')
+        if resp.status_code == 200:
+            data = resp.json()
+            self.user_id = data.get('id')
+            return data
+        return None
+
     def login(self, username, password):
         try:
             resp = requests.post(

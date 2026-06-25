@@ -17,9 +17,10 @@ class EmployeesModule(QWidget):
         'phone': 'Телефон',
     }
 
-    def __init__(self, api_client):
+    def __init__(self, api_client, is_director=True):
         super().__init__()
         self.api = api_client
+        self.is_director = is_director
         self.current_data = []
         self.init_ui()
 
@@ -32,18 +33,21 @@ class EmployeesModule(QWidget):
         layout.addWidget(title)
 
         btn_layout = QHBoxLayout()
-        btn_add = QPushButton("+ Добавить")
-        btn_add.clicked.connect(self.add_employee)
-        btn_edit = QPushButton("Редактировать")
-        btn_edit.clicked.connect(self.edit_employee)
-        btn_delete = QPushButton("Уволить")
-        btn_delete.clicked.connect(self.dismiss_employee)
+        if self.is_director:
+            btn_add = QPushButton("+ Добавить")
+            btn_add.clicked.connect(self.add_employee)
+            btn_edit = QPushButton("Редактировать")
+            btn_edit.clicked.connect(self.edit_employee)
+            btn_delete = QPushButton("Уволить")
+            btn_delete.clicked.connect(self.dismiss_employee)
+            btn_layout.addWidget(btn_add)
+            btn_layout.addWidget(btn_edit)
+            btn_layout.addWidget(btn_delete)
+
+        btn_layout.addStretch()
+
         btn_salary = QPushButton("Зарплата")
         btn_salary.clicked.connect(self.show_salary_report)
-        btn_layout.addWidget(btn_add)
-        btn_layout.addWidget(btn_edit)
-        btn_layout.addWidget(btn_delete)
-        btn_layout.addStretch()
         btn_layout.addWidget(btn_salary)
         layout.addLayout(btn_layout)
 
@@ -77,6 +81,9 @@ class EmployeesModule(QWidget):
             allowed_keys = set(self.COLUMN_NAMES.keys()) | {'id'}
             self.current_data = []
             for item in raw:
+                # Если не директор — показываем только себя
+                if not self.is_director and item.get('user') != self.api.user_id:
+                    continue
                 # Добавляем вычисляемые поля
                 item['full_name'] = f"{item.get('last_name', '')} {item.get('first_name', '')} {item.get('middle_name', '')}".strip()
                 item['position_name'] = item.get('position_name', '')

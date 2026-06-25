@@ -7,7 +7,11 @@ from .serializers import EmployeeSerializer, EmployeeCompetenceSerializer
 class EmployeeViewSet(viewsets.ModelViewSet):
     queryset = Employee.objects.all()
     serializer_class = EmployeeSerializer
-    permission_classes = [permissions.IsAuthenticated, IsDirector]
+
+    def get_permissions(self):
+        if self.action in ['list', 'retrieve']:
+            return [permissions.IsAuthenticated()]
+        return [permissions.IsAuthenticated()]
 
 
 # class EmployeeCompetenceViewSet(viewsets.ModelViewSet):
