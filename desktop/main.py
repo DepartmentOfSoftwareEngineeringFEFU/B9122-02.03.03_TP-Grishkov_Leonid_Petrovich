@@ -145,18 +145,19 @@ class ErpMainWindow(QMainWindow):
         ]
         if self.is_director:
             navigation_items += [
-                ("Заказы", "fa5s.file-invoice", OrdersModule(self.api_client)),
                 ("Клиенты", "fa5s.users", ClientsModule(self.api_client)),
+                ("Заказы", "fa5s.file-invoice", OrdersModule(self.api_client)),
                 ("Сотрудники", "fa5s.id-card", EmployeesModule(self.api_client)),
                 ("Табель работ", "fa5s.calendar-check", WorkLogModule(self.api_client)),
                 ("Склад", "fa5s.boxes", WarehouseModule(self.api_client)),
                 ("Финансы", "fa5s.ruble-sign", FinanceModule(self.api_client)),
-                ("Оборудование", "fa5s.cogs", OperationsModule(self.api_client)),
+                ("Операции", "fa5s.cogs", OperationsModule(self.api_client)),
                 ("Отчёты", "fa5s.chart-bar", ReportsModule(self.api_client)),
                 ("Справочники", "fa5s.book", DirectoriesModule(self.api_client)),
             ]
         else:
             navigation_items += [
+                ("Заказы", "fa5s.file-invoice", OrdersModule(self.api_client, is_director=False)),
                 ("Сотрудники", "fa5s.id-card", EmployeesModule(self.api_client, is_director=False)),
                 ("Табель работ", "fa5s.calendar-check", WorkLogModule(self.api_client, is_director=False)),
             ]

@@ -9,7 +9,16 @@ from widgets import populate_table, save_report
 
 
 class OrdersModule(QWidget):
-    COLUMN_NAMES = {
+    REQUEST_COLUMNS = {
+        'id': '№',
+        'customer_name': 'Клиент',
+        'description': 'Описание',
+        'product_name': 'Изделие',
+        'quantity': 'Кол-во',
+        'desired_deadline': 'Срок',
+        'status': 'Статус',
+    }
+    ORDER_COLUMNS = {
         'id': '№',
         'customer_name': 'Клиент',
         'product_name': 'Изделие',
@@ -19,8 +28,14 @@ class OrdersModule(QWidget):
         'accepted_date': 'Принят',
         'planned_completion_date': 'Сдача (план)',
     }
-
-    STATUSES = {
+    REQUEST_STATUSES = {
+        'new': 'Новая',
+        'in_review': 'На согласовании',
+        'approved': 'Согласована',
+        'rejected': 'Отклонена',
+        'deleted': 'Удалена',
+    }
+    ORDER_STATUSES = {
         'pending': 'В очереди',
         'in_progress': 'В производстве',
         'completed': 'Завершён',
@@ -28,52 +43,104 @@ class OrdersModule(QWidget):
         'cancelled': 'Отменён',
     }
 
-    def __init__(self, api_client):
+    def __init__(self, api_client, is_director=True):
         super().__init__()
         self.api = api_client
+        self.is_director = is_director
+        # print(f"OrdersModule: is_director={self.is_director}")
         self.current_data = []
         self.customers = []
         self.products = []
         self.requests_list = []
+        self.current_type = 'requests'
         self.init_ui()
 
     def init_ui(self):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(16, 16, 16, 16)
 
-        title = QLabel("Заказы")
-        title.setStyleSheet("font-size: 18px; font-weight: bold;")
-        layout.addWidget(title)
+        top_layout = QHBoxLayout()
+        top_layout.addWidget(QLabel("Тип:"))
+        self.type_combo = QComboBox()
+        self.type_combo.addItem("Заявки", "requests")
+        self.type_combo.addItem("Заказы", "orders")
+        self.type_combo.currentIndexChanged.connect(self.load_data)
+        top_layout.addWidget(self.type_combo)
+        top_layout.addStretch()
 
-        btn_layout = QHBoxLayout()
-        btn_add = QPushButton("+ Создать заказ")
-        btn_add.clicked.connect(self.add_order)
-        btn_edit = QPushButton("Редактировать")
-        btn_edit.clicked.connect(self.edit_order)
-        btn_delete = QPushButton("Отменить")
-        btn_delete.clicked.connect(self.cancel_order)
-        
-        btn_profit = QPushButton("Рентабельность заказа")
-        btn_profit.clicked.connect(self.show_order_profitability)
-        btn_completion = QPushButton("Выполнение заказов")
-        btn_completion.clicked.connect(self.show_completion_report)
+        if self.is_director:
+            self.btn_add = QPushButton("+ Создать")
+            self.btn_add.clicked.connect(self.add_item)
+            self.btn_edit = QPushButton("Редактировать")
+            self.btn_edit.clicked.connect(self.edit_item)
+            self.btn_delete = QPushButton("Удалить")
+            self.btn_delete.clicked.connect(self.delete_item)
+            top_layout.addWidget(self.btn_add)
+            top_layout.addWidget(self.btn_edit)
+            top_layout.addWidget(self.btn_delete)
+            top_layout.addStretch()
+            self.btn_profit = QPushButton("Рентабельность заказа")
+            self.btn_profit.clicked.connect(self.show_order_profitability)
+            self.btn_completion = QPushButton("Выполнение заказов")
+            self.btn_completion.clicked.connect(self.show_completion_report)
+            top_layout.addWidget(self.btn_profit)
+            top_layout.addWidget(self.btn_completion)
+        else:
+            self.btn_add = QPushButton("+ Создать заявку")
+            self.btn_add.clicked.connect(self.add_item)
+            top_layout.addWidget(self.btn_add)
+            self.btn_edit = None
+            self.btn_delete = None
 
-        btn_layout.addWidget(btn_add)
-        btn_layout.addWidget(btn_edit)
-        btn_layout.addWidget(btn_delete)
-        btn_layout.addStretch()
-        btn_layout.addWidget(btn_profit)
-        btn_layout.addWidget(btn_completion)
-        layout.addLayout(btn_layout)
+        layout.addLayout(top_layout)
 
         self.table = QTableWidget()
         self.table.setEditTriggers(QTableWidget.NoEditTriggers)
         self.table.setSelectionBehavior(QTableWidget.SelectRows)
         self.table.horizontalHeader().setStretchLastSection(True)
+        self.table.itemSelectionChanged.connect(self._update_buttons)
         layout.addWidget(self.table)
 
         self._load_dictionaries()
         self.load_data()
+
+    def _update_buttons(self):
+        row = self.table.currentRow()
+
+        if self.is_director:
+            # Директору всё можно
+            if hasattr(self, 'btn_edit') and self.btn_edit:
+                self.btn_edit.setEnabled(True)
+            if hasattr(self, 'btn_delete') and self.btn_delete:
+                self.btn_delete.setEnabled(True)
+            return
+
+        # Сотрудник
+        if row < 0:
+            self.btn_add.setEnabled(self.current_type == 'requests')
+            if self.btn_edit:
+                self.btn_edit.setEnabled(False)
+            if self.btn_delete:
+                self.btn_delete.setEnabled(False)
+            return
+
+        item = self.current_data[row]
+        status = item.get('status', '')
+
+        if self.current_type == 'requests':
+            can_modify = status not in ['Согласована', 'Отклонена', 'Удалена']
+            self.btn_add.setEnabled(True)
+            if self.btn_edit:
+                self.btn_edit.setEnabled(can_modify)
+            if self.btn_delete:
+                self.btn_delete.setEnabled(can_modify)
+        else:
+            self.btn_add.setEnabled(False)
+            if self.btn_edit:
+                self.btn_edit.setEnabled(False)
+            if self.btn_delete:
+                self.btn_delete.setEnabled(False)
+
 
     def _load_dictionaries(self):
         resp = self.api.get("customers/")
@@ -89,58 +156,84 @@ class OrdersModule(QWidget):
             self.requests_list = resp.json() if isinstance(resp.json(), list) else resp.json().get('results', [])
 
     def load_data(self):
-        resp = self.api.get("orders/")
+        self.current_type = self.type_combo.currentData()
+        resp = self.api.get(self.current_type + "/")
         if resp.status_code == 200:
             raw = resp.json() if isinstance(resp.json(), list) else resp.json().get('results', [])
-            allowed = set(self.COLUMN_NAMES.keys())
+            columns = self.REQUEST_COLUMNS if self.current_type == 'requests' else self.ORDER_COLUMNS
+            statuses = self.REQUEST_STATUSES if self.current_type == 'requests' else self.ORDER_STATUSES
+            allowed = set(columns.keys()) | {'id'}
             self.current_data = []
             for item in raw:
+                # Фильтрация по правам: сотрудник видит только свои
+                if not self.is_director:
+                    if self.current_type == 'requests':
+                        if item.get('customer') != self.api.customer_id:
+                            continue
+                    else:
+                        if item.get('customer') != self.api.customer_id:
+                            continue
+                # Заявки: не показываем удалённые
+                if self.current_type == 'requests' and item.get('status') == 'deleted':
+                    continue
                 item['customer_name'] = item.get('customer_name', '')
                 item['product_name'] = item.get('product_name', '')
-                item['total_price'] = item.get('total_price', 0)
-                item['status'] = self.STATUSES.get(item.get('status', ''), item.get('status', ''))
+                item['status'] = statuses.get(item.get('status', ''), item.get('status', ''))
+                if 'total_price' in item:
+                    item['total_price'] = item.get('total_price', 0)
                 filtered = {k: v for k, v in item.items() if k in allowed}
                 self.current_data.append(filtered)
-            populate_table(self.table, self.current_data, self.COLUMN_NAMES)
+            populate_table(self.table, self.current_data, columns)
         else:
             QMessageBox.warning(self, "Ошибка", f"Не удалось загрузить: {resp.status_code}")
 
     def get_selected_id(self):
         row = self.table.currentRow()
         if row < 0:
-            QMessageBox.warning(self, "Ошибка", "Выберите заказ")
+            QMessageBox.warning(self, "Ошибка", "Выберите запись")
             return None
         return self.current_data[row].get('id')
 
-    def add_order(self):
-        dialog = OrderDialog(self.api, self.customers, self.products, self.requests_list)
+    def add_item(self):
+        if self.current_type == 'requests':
+            dialog = RequestDialog(self.api, self.customers)
+        else:
+            dialog = OrderDialog(self.api, self.customers, self.products, self.requests_list)
         if dialog.exec_() == QDialog.Accepted:
             self.load_data()
 
-    def edit_order(self):
-        order_id = self.get_selected_id()
-        if not order_id:
+    def edit_item(self):
+        item_id = self.get_selected_id()
+        if not item_id:
             return
-        dialog = OrderDialog(self.api, self.customers, self.products, self.requests_list, order_id)
+        if self.current_type == 'requests':
+            dialog = RequestDialog(self.api, self.customers, item_id)
+        else:
+            dialog = OrderDialog(self.api, self.customers, self.products, self.requests_list, item_id)
         if dialog.exec_() == QDialog.Accepted:
             self.load_data()
 
-    def cancel_order(self):
-        order_id = self.get_selected_id()
-        if not order_id:
+    def delete_item(self):
+        item_id = self.get_selected_id()
+        if not item_id:
             return
-        reply = QMessageBox.question(self, "Подтверждение", "Отменить заказ?",
+        reply = QMessageBox.question(self, "Подтверждение",
+                                     "Отменить заказ?" if self.current_type == 'orders' else "Удалить заявку?",
                                      QMessageBox.Yes | QMessageBox.No)
         if reply == QMessageBox.Yes:
-            resp = self.api.patch(f"orders/{order_id}/", {"status": "cancelled"})
+            if self.current_type == 'orders':
+                resp = self.api.patch(f"orders/{item_id}/", {"status": "cancelled"})
+            else:
+                resp = self.api.patch(f"requests/{item_id}/", {"status": "deleted"})
             if resp.status_code in [200, 201]:
                 self.load_data()
             else:
                 QMessageBox.critical(self, "Ошибка", f"Не удалось: {resp.status_code}")
 
     def show_order_profitability(self):
-        order_id = self.get_selected_id()
+        order_id = self.get_selected_id() if self.current_type == 'orders' else None
         if not order_id:
+            QMessageBox.warning(self, "Ошибка", "Выберите заказ (переключитесь на вкладку Заказы)")
             return
 
         # Собираем данные
@@ -217,7 +310,7 @@ class OrdersModule(QWidget):
         table.horizontalHeader().setStretchLastSection(True)
 
         product_name = order.get('product_name', '')
-        status = self.STATUSES.get(order.get('status', ''), '')
+        status = self.ORDER_STATUSES.get(order.get('status', ''), '')
 
         rows = [
             ("Заказ №", order_id),
@@ -509,6 +602,81 @@ class OrderDialog(QDialog):
             resp = self.api.put(f"orders/{self.order_id}/", data)
         else:
             resp = self.api.post("orders/", data)
+        if resp.status_code in [200, 201]:
+            self.accept()
+        else:
+            QMessageBox.critical(self, "Ошибка", f"Не удалось сохранить: {resp.status_code}\n{resp.text}")
+
+class RequestDialog(QDialog):
+    def __init__(self, api_client, customers, req_id=None):
+        super().__init__()
+        self.api = api_client
+        self.customers = customers
+        self.req_id = req_id
+        self.setWindowTitle("Редактирование заявки" if req_id else "Новая заявка")
+        self.setMinimumWidth(450)
+        self.init_ui()
+        if req_id:
+            self._load()
+
+    def init_ui(self):
+        layout = QVBoxLayout()
+        form = QFormLayout()
+
+        self.customer_combo = QComboBox()
+        for c in self.customers:
+            self.customer_combo.addItem(c.get('name', ''), c.get('id'))
+        form.addRow("Клиент", self.customer_combo)
+
+        self.description = QLineEdit()
+        form.addRow("Описание", self.description)
+
+        self.product_name = QLineEdit()
+        form.addRow("Изделие", self.product_name)
+
+        self.quantity = QSpinBox()
+        self.quantity.setMinimum(1)
+        self.quantity.setMaximum(99999)
+        self.quantity.setValue(1)
+        form.addRow("Количество", self.quantity)
+
+        self.deadline = QDateEdit()
+        self.deadline.setCalendarPopup(True)
+        self.deadline.setDate(QDate.currentDate().addDays(14))
+        form.addRow("Срок", self.deadline)
+
+        layout.addLayout(form)
+        btn = QPushButton("Сохранить")
+        btn.clicked.connect(self.save)
+        layout.addWidget(btn)
+        self.setLayout(layout)
+
+    def _load(self):
+        resp = self.api.get(f"requests/{self.req_id}/")
+        if resp.status_code != 200:
+            return
+        d = resp.json()
+        idx = self.customer_combo.findData(d.get('customer'))
+        if idx >= 0:
+            self.customer_combo.setCurrentIndex(idx)
+        self.description.setText(d.get('description', ''))
+        self.product_name.setText(d.get('product_name', ''))
+        self.quantity.setValue(d.get('quantity', 1))
+        if d.get('desired_deadline'):
+            self.deadline.setDate(QDate.fromString(d['desired_deadline'], 'yyyy-MM-dd'))
+
+    def save(self):
+        data = {
+            'customer': self.customer_combo.currentData(),
+            'description': self.description.text(),
+            'product_name': self.product_name.text() or None,
+            'quantity': self.quantity.value(),
+            'desired_deadline': self.deadline.date().toString('yyyy-MM-dd'),
+        }
+        if self.req_id:
+            resp = self.api.put(f"requests/{self.req_id}/", data)
+        else:
+            resp = self.api.post("requests/", data)
         if resp.status_code in [200, 201]:
             self.accept()
         else:

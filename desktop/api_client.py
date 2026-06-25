@@ -20,6 +20,7 @@ class APIClient:
         if resp.status_code == 200:
             data = resp.json()
             self.user_id = data.get('id')
+            self.customer_id = data.get('customer_id')
             return data
         return None
 
