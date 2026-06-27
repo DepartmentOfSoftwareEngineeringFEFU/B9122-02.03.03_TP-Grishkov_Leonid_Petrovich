@@ -1,5 +1,12 @@
 from PyQt5.QtWidgets import QTableWidgetItem
-
+from PyQt5.QtWidgets import (
+    QWidget, QVBoxLayout, QLabel, QPushButton, QTableWidget,
+    QTableWidgetItem, QFileDialog, QMessageBox, QHBoxLayout
+)
+import os
+import sys
+import tempfile
+import subprocess
 
 class NumericTableWidgetItem(QTableWidgetItem):
     def __lt__(self, other):
@@ -175,3 +182,142 @@ def save_report(parent, title, table, summary_rows=None, params=None):
         QMessageBox.information(parent, "Готово", f"Отчёт сохранён:\n{filepath}")
     except Exception as e:
         QMessageBox.critical(parent, "Ошибка", f"Не удалось сохранить: {e}")
+
+
+
+
+class FileListWidget(QWidget):
+    """Виджет для отображения и управления файлами сущности."""
+
+    def __init__(self, api_client, content_type, object_id=None, is_director=True):
+        super().__init__()
+        self.api = api_client
+        self.content_type = content_type
+        self.object_id = object_id
+        self.is_director = is_director
+        self.current_files = []
+        self.init_ui()
+        if object_id:
+            self.load_files()
+
+    def init_ui(self):
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 8, 0, 0)
+
+        label = QLabel("Прикреплённые файлы:")
+        layout.addWidget(label)
+
+        self.table = QTableWidget()
+        self.table.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.table.setSelectionBehavior(QTableWidget.SelectRows)
+        self.table.setColumnCount(3)
+        self.table.setHorizontalHeaderLabels(["Имя файла", "Категория", "Размер"])
+        self.table.horizontalHeader().setStretchLastSection(True)
+        self.table.setMaximumHeight(120)
+        layout.addWidget(self.table)
+
+        if self.is_director:
+            btn_layout = QHBoxLayout()
+            btn_add = QPushButton("Загрузить")
+            btn_add.clicked.connect(self.add_file)
+            btn_open = QPushButton("Открыть")
+            btn_open.clicked.connect(self.open_file)
+            btn_del = QPushButton("Удалить")
+            btn_del.clicked.connect(self.delete_file)
+            btn_layout.addWidget(btn_add)
+            btn_layout.addWidget(btn_open)
+            btn_layout.addWidget(btn_del)
+            btn_layout.addStretch()
+            layout.addLayout(btn_layout)
+
+    def set_object(self, object_id):
+        """Установить ID объекта и загрузить файлы."""
+        self.object_id = object_id
+        if object_id:
+            self.load_files()
+        else:
+            self.current_files = []
+            self._refresh_table()
+
+    def open_file(self):
+        row = self.table.currentRow()
+        if row < 0:
+            QMessageBox.warning(self, "Ошибка", "Выберите файл")
+            return
+        file_id = self.current_files[row].get('id')
+        original_name = self.current_files[row].get('original_name', 'file')
+        
+        # Скачиваем файл во временную папку и открываем
+        resp = self.api.get(f"files/{file_id}/download/")
+        if resp.status_code == 200:
+            # Сохраняем во временный файл
+            suffix = os.path.splitext(original_name)[1]
+            with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+                tmp.write(resp.content)
+                tmp_path = tmp.name
+            # Открываем в системном приложении
+            if sys.platform == 'win32':
+                os.startfile(tmp_path)
+            elif sys.platform == 'darwin':
+                subprocess.run(['open', tmp_path])
+            else:
+                subprocess.run(['xdg-open', tmp_path])
+        else:
+            QMessageBox.critical(self, "Ошибка", "Не удалось скачать файл")
+
+    # def load_files(self):
+    #     resp = self.api.get("files/")
+    #     if resp.status_code == 200:
+    #         data = resp.json() if isinstance(resp.json(), list) else resp.json().get('results', [])
+    #         self.current_files = [
+    #             f for f in data
+    #             if f.get('content_type') == self.content_type
+    #             and f.get('object_id') == self.object_id
+    #         ]
+    #         self._refresh_table()
+    def load_files(self):
+        if not self.object_id:
+            return
+        resp = self.api.get(f"files/?content_type={self.content_type}&object_id={self.object_id}")
+        if resp.status_code == 200:
+            data = resp.json() if isinstance(resp.json(), list) else resp.json().get('results', [])
+            self.current_files = data
+            self._refresh_table()
+
+    def _refresh_table(self):
+        self.table.setRowCount(len(self.current_files))
+        for i, f in enumerate(self.current_files):
+            self.table.setItem(i, 0, QTableWidgetItem(f.get('original_name', '')))
+            self.table.setItem(i, 1, QTableWidgetItem(f.get('file_category', '')))
+            size = f.get('file', {}).get('size', '') if isinstance(f.get('file'), dict) else ''
+            self.table.setItem(i, 2, QTableWidgetItem(str(size)))
+
+    def add_file(self):
+        if not self.object_id:
+            QMessageBox.warning(self, "Ошибка", "Сначала сохраните объект")
+            return
+        path, _ = QFileDialog.getOpenFileName(self, "Выбрать файл")
+        if not path:
+            return
+        resp = self.api.upload('files/', {
+            'content_type': self.content_type,
+            'object_id': self.object_id,
+            'file_category': 'other',
+            'original_name': path.split('/')[-1],
+        }, file_path=path)
+        if resp.status_code == 201:
+            self.load_files()
+        else:
+            QMessageBox.critical(self, "Ошибка", f"Не удалось загрузить: {resp.status_code}")
+
+    def delete_file(self):
+        row = self.table.currentRow()
+        if row < 0:
+            QMessageBox.warning(self, "Ошибка", "Выберите файл")
+            return
+        file_id = self.current_files[row].get('id')
+        resp = self.api.delete(f"files/{file_id}/")
+        if resp.status_code == 204:
+            self.load_files()
+        else:
+            QMessageBox.critical(self, "Ошибка", f"Не удалось удалить: {resp.status_code}")

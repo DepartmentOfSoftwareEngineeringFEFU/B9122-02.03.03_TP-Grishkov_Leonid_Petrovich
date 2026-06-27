@@ -78,3 +78,43 @@ class APIClient:
 
     def delete(self, endpoint):
         return self._request(requests.delete, endpoint)
+    
+    # def upload(self, endpoint, data, file_field='file', file_path=None):
+    #     """Загрузка файла через multipart/form-data."""
+    #     import requests as req
+    #     with open(file_path, 'rb') as f:
+    #         files = {file_field: f}
+    #         resp = req.post(
+    #             f'{self.BASE_URL}{endpoint}',
+    #             data=data,
+    #             files=files,
+    #             headers={'Authorization': f'Bearer {self.token}'}
+    #         )
+    #         if resp.status_code == 401 and self._refresh():
+    #             resp = req.post(
+    #                 f'{self.BASE_URL}{endpoint}',
+    #                 data=data,
+    #                 files=files,
+    #                 headers={'Authorization': f'Bearer {self.token}'}
+    #             )
+    #         return resp
+
+    def upload(self, endpoint, data, file_path=None):
+        with open(file_path, 'rb') as f:
+            files = {'file': (data.get('original_name', 'file'), f)}
+            resp = requests.post(
+                f'{self.BASE_URL}{endpoint}',
+                data=data,
+                files=files,
+                headers={'Authorization': f'Bearer {self.token}'}
+            )
+            if resp.status_code == 401 and self._refresh():
+                with open(file_path, 'rb') as f:
+                    files = {'file': (data.get('original_name', 'file'), f)}
+                    resp = requests.post(
+                        f'{self.BASE_URL}{endpoint}',
+                        data=data,
+                        files=files,
+                        headers={'Authorization': f'Bearer {self.token}'}
+                    )
+            return resp

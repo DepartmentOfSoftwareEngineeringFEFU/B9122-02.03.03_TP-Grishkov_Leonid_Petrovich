@@ -5,7 +5,7 @@ from PyQt5.QtWidgets import (
     QSpinBox, QDoubleSpinBox, QMessageBox
 )
 from PyQt5.QtCore import Qt, QDate
-from widgets import populate_table, save_report
+from widgets import populate_table, save_report, FileListWidget
 
 
 class OrdersModule(QWidget):
@@ -545,6 +545,16 @@ class OrderDialog(QDialog):
         form.addRow("Примечания", self.notes)
 
         layout.addLayout(form)
+
+        # Файлы (только при редактировании)
+        self.file_widget = FileListWidget(
+            self.api,
+            content_type='order',
+            object_id=self.order_id,
+            is_director=True
+        )
+        layout.addWidget(self.file_widget)
+        
         btn_save = QPushButton("Сохранить")
         btn_save.clicked.connect(self.save)
         layout.addWidget(btn_save)
@@ -583,6 +593,29 @@ class OrderDialog(QDialog):
             self.status_combo.setCurrentIndex(idx)
         self.notes.setText(d.get('notes', ''))
 
+    # def save(self):
+    #     data = {
+    #         'request': self.request_combo.currentData(),
+    #         'customer': self.customer_combo.currentData(),
+    #         'product': self.product_combo.currentData(),
+    #         'quantity': self.quantity.value(),
+    #         'price_per_unit': self.price.value(),
+    #         'material_source': self.material_source.currentData(),
+    #         'accepted_date': self.accepted_date.date().toString('yyyy-MM-dd'),
+    #         'planned_completion_date': self.planned_date.date().toString('yyyy-MM-dd'),
+    #         'launch_date': self.launch_date.date().toString('yyyy-MM-dd') if self.launch_date.date() > QDate(2000, 1, 1) else None,
+    #         'completion_date': self.completion_date.date().toString('yyyy-MM-dd') if self.completion_date.date() > QDate(2000, 1, 1) else None,
+    #         'status': self.status_combo.currentData(),
+    #         'notes': self.notes.text(),
+    #     }
+    #     if self.order_id:
+    #         resp = self.api.put(f"orders/{self.order_id}/", data)
+    #     else:
+    #         resp = self.api.post("orders/", data)
+    #     if resp.status_code in [200, 201]:
+    #         self.accept()
+    #     else:
+    #         QMessageBox.critical(self, "Ошибка", f"Не удалось сохранить: {resp.status_code}\n{resp.text}")
     def save(self):
         data = {
             'request': self.request_combo.currentData(),
@@ -603,6 +636,11 @@ class OrderDialog(QDialog):
         else:
             resp = self.api.post("orders/", data)
         if resp.status_code in [200, 201]:
+            # Обновить ID для нового заказа и привязать файлы
+            if not self.order_id:
+                new_id = resp.json().get('id')
+                if new_id and hasattr(self, 'file_widget'):
+                    self.file_widget.set_object(new_id)
             self.accept()
         else:
             QMessageBox.critical(self, "Ошибка", f"Не удалось сохранить: {resp.status_code}\n{resp.text}")

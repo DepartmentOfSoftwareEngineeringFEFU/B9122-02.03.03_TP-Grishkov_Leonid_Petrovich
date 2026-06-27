@@ -8,10 +8,24 @@ from rest_framework.decorators import action
 class RequestViewSet(viewsets.ModelViewSet):
     serializer_class = RequestSerializer
 
+    # def get_queryset(self):
+    #     user = self.request.user
+    #     if hasattr(user, 'profile') and user.profile.is_director:
+    #         return Request.objects.exclude(status=Request.Status.DELETED)
+    #     if hasattr(user, 'customer'):
+    #         return Request.objects.filter(customer=user.customer).exclude(status=Request.Status.DELETED)
+    #     return Request.objects.none()
     def get_queryset(self):
         user = self.request.user
+        # Веб-портал: параметр my=true — только свои, если есть customer
+        if self.request.query_params.get('my') == 'true':
+            if hasattr(user, 'customer'):
+                return Request.objects.filter(customer=user.customer).exclude(status=Request.Status.DELETED)
+            return Request.objects.none()
+        # Десктоп: директор видит все, кроме удалённых
         if hasattr(user, 'profile') and user.profile.is_director:
             return Request.objects.exclude(status=Request.Status.DELETED)
+        # Десктоп: клиент/сотрудник видит свои
         if hasattr(user, 'customer'):
             return Request.objects.filter(customer=user.customer).exclude(status=Request.Status.DELETED)
         return Request.objects.none()
@@ -28,6 +42,18 @@ class RequestViewSet(viewsets.ModelViewSet):
             return True
         blocked_statuses = [Request.Status.APPROVED, Request.Status.REJECTED, Request.Status.DELETED]
         return request_obj.status not in blocked_statuses
+
+    def perform_create(self, serializer):
+        user = self.request.user
+        # Если у пользователя нет клиента — создаём автоматически
+        if not hasattr(user, 'customer'):
+            from clients.models import Customer
+            Customer.objects.create(
+                user=user,
+                name=user.get_full_name() or user.username,
+                source=Customer.Source.COMPANY_WEBSITE
+            )
+        serializer.save(customer=user.customer)
 
     def perform_update(self, serializer):
         if not self._can_modify(self.get_object(), self.request.user):
@@ -73,10 +99,24 @@ class RequestViewSet(viewsets.ModelViewSet):
 class OrderViewSet(viewsets.ModelViewSet):
     serializer_class = OrderSerializer
 
+    # def get_queryset(self):
+    #     user = self.request.user
+    #     if hasattr(user, 'profile') and user.profile.is_director:
+    #         return Order.objects.all()
+    #     if hasattr(user, 'customer'):
+    #         return Order.objects.filter(customer=user.customer)
+    #     return Order.objects.none()
     def get_queryset(self):
         user = self.request.user
+        # Веб-портал: параметр my=true — только свои, если есть customer
+        if self.request.query_params.get('my') == 'true':
+            if hasattr(user, 'customer'):
+                return Order.objects.filter(customer=user.customer)
+            return Order.objects.none()
+        # Десктоп: директор видит все
         if hasattr(user, 'profile') and user.profile.is_director:
             return Order.objects.all()
+        # Десктоп: клиент/сотрудник видит свои
         if hasattr(user, 'customer'):
             return Order.objects.filter(customer=user.customer)
         return Order.objects.none()
@@ -110,3 +150,5 @@ class OrderViewSet(viewsets.ModelViewSet):
             )
         instance.status = Order.Status.CANCELLED
         instance.save()
+
+    

@@ -24,6 +24,7 @@ from modules.operations import OperationsModule
 from modules.finance import FinanceModule
 from modules.orders import OrdersModule
 from modules.reports import ReportsModule
+from modules.files import FilesModule
 
 
 # Константы Windows API для отслеживания границ окна
@@ -154,6 +155,7 @@ class ErpMainWindow(QMainWindow):
                 ("Операции", "fa5s.cogs", OperationsModule(self.api_client)),
                 ("Отчёты", "fa5s.chart-bar", ReportsModule(self.api_client)),
                 ("Справочники", "fa5s.book", DirectoriesModule(self.api_client)),
+                ("Файлы", "fa5s.folder", FilesModule(self.api_client, is_director=True)),
             ]
         else:
             navigation_items += [
