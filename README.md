@@ -24,6 +24,7 @@
 ```bash
 git clone https://github.com/DepartmentOfSoftwareEngineeringFEFU/B9122-02.03.03_TP-Grishkov_Leonid_Petrovich.git
 cd B9122-02.03.03_TP-Grishkov_Leonid_Petrovich
+```
 
 ### 2. Установить Python-зависимости
 
@@ -31,6 +32,7 @@ cd B9122-02.03.03_TP-Grishkov_Leonid_Petrovich
 python -m venv venv
 source venv\Scripts\activate
 pip install -r requirements.txt
+```
 
 ### 3. Подготовить базу данных и запустить сервер (из корня проекта)
 
@@ -39,7 +41,7 @@ pip install -r requirements.txt
 cd backend
 python manage.py reset_db
 python manage.py runserver
-
+```
 Сервер будет доступен по адресу http://127.0.0.1:8000/
 
 ### 4. Запустить десктопное приложение (второй терминал, из корня проекта)
@@ -49,6 +51,7 @@ python manage.py runserver
 source venv\Scripts\activate
 cd desktop
 python main.py
+```
 
 ### 5. Запустить веб-портал (третий терминал, опционально)
 
@@ -57,7 +60,7 @@ python main.py
 cd web
 npm install
 npm run dev
-
+```
 Веб-портал будет доступен по адресу http://localhost:5173/
 
 
